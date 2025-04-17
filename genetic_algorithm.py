@@ -129,3 +129,10 @@ def update_population(population, num_parents = 2, mutation_rate = 0.1, alpha = 
         new_population.append(child)
 
     return new_population
+
+
+# # alpha = 0.8983781024855365
+# # gen_count = 100
+# # hidden_dims = 50
+# # mutation_rate = 0.3313611154103022
+# # parent_count = 2
