@@ -26,3 +26,10 @@ def summarize_day_array(day_array, start_hour=9):
         end_time_str = (start_time + timedelta(minutes=end_idx * block_length)).strftime("%H:%M")
         duration = (end_idx - start_idx) * block_length
         print(f"- {task_label}: {start_time_str} to {end_time_str} ({duration} mins)")
+
+
+def time_to_15min_index(time_str):
+    # time_str format: "HH:MM"
+    hours, minutes = map(int, time_str.split(':'))
+    index = hours * 4 + (minutes // 15)
+    return index   

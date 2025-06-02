@@ -8,6 +8,9 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
+from utils import time_to_15min_index
+
+
 # If modifying these scopes, delete the file token.json.
 SCOPES = ["https://www.googleapis.com/auth/calendar", 
           "https://www.googleapis.com/auth/calendar.events", 
@@ -18,22 +21,9 @@ SCOPES = ["https://www.googleapis.com/auth/calendar",
 
 def format_datetime(input_string):
     try:
-        if input_string is not None:
-          dt = parser.parse(input_string)
-          # If time is not included, default to just showing the date
-          if dt.time() == dt.min.time():
-              return dt.strftime("%B %d, %Y")
-          else:
-              # Format with timezone if available
-              if dt.tzinfo:
-                  readable = dt.strftime("%B %d, %Y at %I:%M%p")
-                  readable = readable[:-2] + ":" + readable[-2:]  # Make timezone like +01:00
-              else:
-                  readable = dt.strftime("%B %d, %Y at %I:%M %p")
-              return readable
-        else:
-           return 
-    except ValueError:
+      dt = parser.parse(input_string)
+      return dt
+    except Exception as e:
         return "Invalid date format"
 
 
@@ -50,25 +40,22 @@ def fetch_calendars(service):
       calendar_names.append(cal['summary'])
       calendar_ids.append(cal['id'])
 
-  return calendar_ids, calendar_names
+  calendar_dict = {idx: i+1 for i, idx in enumerate(calendar_ids)}
 
-def fetch_events(service, id, days):
-    days = 7
+  return calendar_ids, calendar_dict, calendar_names
 
-    # Calculate next day's start and end time
-    now = datetime.now(tz = timezone.utc)
+def fetch_events(service, calendar_id, days, schedule, task_dict):
+    now = datetime.now(tz=timezone.utc)
     next_day_start = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
     next_day_end = next_day_start + timedelta(days=days)
 
-    # Format times in RFC3339 (ISO 8601) with timezone info
     time_min = next_day_start.isoformat()
     time_max = next_day_end.isoformat()
 
-    # Call the Google Calendar API
     events_result = (
         service.events()
         .list(
-            calendarId=id,
+            calendarId=calendar_id,
             timeMin=time_min,
             timeMax=time_max,
             singleEvents=True,
@@ -76,20 +63,34 @@ def fetch_events(service, id, days):
         )
         .execute()
     )
-    
+
     events = events_result.get("items", [])
 
-    if not events:
-      print("No upcoming events found.")
-      return
+    task_id = task_dict.get(calendar_id, 10)  # Default to 10
 
-    # Prints the start and name of the next 10 events
     for event in events:
-      print(format_datetime(event["start"].get("dateTime")), event["summary"])
+        start_time_str = event["start"].get("dateTime")
+        end_time_str = event["end"].get("dateTime")
+        start_dt = format_datetime(start_time_str)
+        end_dt = format_datetime(end_time_str)
+
+        if start_dt != "Invalid date format":
+            if start_dt is None or start_dt < next_day_start or start_dt >= next_day_end:
+                continue
+            
+
+            day_offset = (start_dt.date() - next_day_start.date()).days
+            time_block_start = time_to_15min_index(start_dt.strftime("%H:%M"))
+            time_block_end = time_to_15min_index(end_dt.strftime("%H:%M"))
+
+            if 0 <= day_offset < days and 0 <= time_block_start < 96 and 0 <= time_block_end < 96:
+                schedule[time_block_start:time_block_end+1, day_offset] = task_id
 
 
+def fetch_data(schedule):
 
-def fetch_data():
+  days = schedule.shape[1]
+
   creds = None
   if os.path.exists("token.json"):
     creds = Credentials.from_authorized_user_file("token.json", SCOPES)
@@ -106,15 +107,12 @@ def fetch_data():
 
   try:
     service = build("calendar", "v3", credentials=creds)
-    cal_ids, cal_names = fetch_calendars(service)
+    cal_ids, cal_dict, _ = fetch_calendars(service)
     for i, idx in enumerate(cal_ids):
-      print(cal_names[i])
-      fetch_events(service, idx, 7)
-      print()
+      fetch_events(service, idx, days, schedule, cal_dict)
+      
+    return schedule
+
 
   except HttpError as error:
     print(f"An error occurred: {error}")
-
-
-if __name__ == "__main__":
-  fetch_data()
