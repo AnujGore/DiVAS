@@ -44,12 +44,13 @@ class FeedForwardNN(nn.Module):
 		"""
 		# Convert observation to tensor if it's a numpy array
 		if isinstance(obs, np.ndarray):
-			obs = torch.tensor(obs, dtype=torch.float)
+			obs = torch.tensor(obs)
+
+		obs = obs.to(dtype=torch.float32)
 
 		output = self.network(obs)
 
 		return output
-
 
 class PPO:
 	def __init__(self, env, **kwargs):
@@ -79,4 +80,4 @@ def reward(schedule, num_tasks, **kwargs):
 		
 		count[i] = max(max_count, counter)
 			
-	return np.log(np.prod(np.multiply(count, kwargs["importance"]))), count
+	return np.prod(np.multiply(count, kwargs["importance"])), count
