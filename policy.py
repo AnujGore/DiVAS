@@ -1,11 +1,12 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import numpy as np
 
+STALE_REWARD_THRESHOLD = 1e-2  
+STALE_REWARD_WINDOW = 10       
+SPIKE_STD = 0.2
 
 class FeedForwardNN(nn.Module):
-
 	"""
 		A standard in_dim-64-64-out_dim Feed Forward Neural Network.
 	"""
@@ -55,29 +56,26 @@ class FeedForwardNN(nn.Module):
 class PPO:
 	def __init__(self, env, **kwargs):
 		self.env = env
+		self.num_slots = 24*4
 		self.hidden_dim = [128, 256, 128]
 		self.num_actions = env.num_tasks
 		self.lr = kwargs["learning_rate"]
 
-		self.actor = FeedForwardNN(self.env.schedule.shape[0], self.hidden_dim, self.num_actions)
-		self.critic = FeedForwardNN(self.env.schedule.shape[0], self.hidden_dim, 1)
+		input_dim = self.num_slots + self.num_slots
+
+		self.actor = FeedForwardNN(input_dim, self.hidden_dim, self.num_actions)
+		self.critic = FeedForwardNN(input_dim, self.hidden_dim, 1)
 
 		self.actor_optim = torch.optim.Adam(self.actor.parameters(), lr=self.lr)
 		self.critic_optim = torch.optim.Adam(self.critic.parameters(), lr=self.lr)
 
+def is_stale(reward_history):
+    if len(reward_history) < STALE_REWARD_WINDOW:
+        return False
+    recent_rewards = reward_history[-STALE_REWARD_WINDOW:]
+    return torch.std(torch.tensor(recent_rewards)) < STALE_REWARD_THRESHOLD
 
-def reward(schedule, num_tasks, **kwargs):
-	count = np.zeros(shape = (num_tasks))
-	for i in range(num_tasks):
-		max_count = 0; counter = 0
-		for j, _ in enumerate(schedule):
-			if schedule[j] == i+1:
-				counter += 1
-			else:
-				if counter > max_count:
-					max_count = counter
-				counter = 0
-		
-		count[i] = max(max_count, counter)
-			
-	return np.prod(np.multiply(count, kwargs["importance"])), count
+def spike_actor_network(actor):
+    with torch.no_grad():
+        for param in actor.parameters():
+            param.mul_(SPIKE_STD)

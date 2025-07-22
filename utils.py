@@ -32,4 +32,4 @@ def time_to_15min_index(time_str):
     # time_str format: "HH:MM"
     hours, minutes = map(int, time_str.split(':'))
     index = hours * 4 + (minutes // 15)
-    return index   
+    return index

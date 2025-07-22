@@ -29,5 +29,11 @@ The higher-level architecture would be like this
 MIT License. See `LICENSE` for details.
 
 
-# To Do:
+# To do:
  - PPO for basic schedule
+
+# Project Updates:
+
+### July 22, 2025
+
+I got the actor and critic models working. But I have a feeling they are getting stuck in a local loss minimum so I added a "spiking" functionality. Essentially slightly modifies the parameters by multiplying in some noise and hopefully the model "escapes" the local minima and explores more.

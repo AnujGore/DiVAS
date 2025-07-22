@@ -120,7 +120,7 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-env/
+myenv/
 
 # Spyder project settings
 .spyderproject
@@ -154,3 +154,4 @@ cython_debug/
 #.idea/
 
 *.json
+*.pth
