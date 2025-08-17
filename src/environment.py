@@ -1,16 +1,26 @@
 import numpy as np
-from google_calendar_interface import fetch_data
+from calendar_interface.google_calendar_interface import fetch_data
 import torch
+from utils import time_to_15min_index, time_to_iso
+import datetime
 
 class SchedulerEnv:
-    def __init__(self, days, num_tasks):
+    def __init__(self, days, num_tasks, hours = None):
         self.days = days
         self.num_tasks = num_tasks
         self.schedule = np.zeros((24 * 4, days))
 
-    # def fetch_info(self):
-    #     # self.schedule = fetch_data(self.schedule)
-    #     self.schedule = np
+        if hours is not None:
+            self.start = time_to_15min_index(datetime.datetime.fromisoformat(time_to_iso("Zurich", hours[0])))
+            self.end = time_to_15min_index(datetime.datetime.fromisoformat(time_to_iso("Zurich", hours[1])))
+
+    def fetch_info(self):
+        self.schedule, self.cal_dict, self.cal_names = fetch_data(self.schedule)
+
+        if self.start is not None and self.end is not None:
+            self.schedule[:self.start, :] = -1
+            self.schedule[self.end:, :] = -1
+
 
     def reset(self):
         self.schedule = np.zeros((24 * 4, self.days))

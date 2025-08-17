@@ -1,4 +1,11 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
+from zoneinfo import ZoneInfo 
+from typing import List
+
+CITY_TIMEZONES = {
+    "Zurich": "Europe/Zurich",
+    "Los Angeles": "America/Los_Angeles",
+}
 
 def summarize_day_array(day_array, start_hour=9):
     block_length = 15  # minutes
@@ -28,8 +35,49 @@ def summarize_day_array(day_array, start_hour=9):
         print(f"- {task_label}: {start_time_str} to {end_time_str} ({duration} mins)")
 
 
-def time_to_15min_index(time_str):
-    # time_str format: "HH:MM"
-    hours, minutes = map(int, time_str.split(':'))
+def time_to_15min_index(dt):
+    """
+    Convert a timezone-aware datetime to a 15-minute index
+    using the local time (with its timezone offset included).
+    """
+    local_dt = dt.astimezone()  # converts to local timezone
+    hours = local_dt.hour
+    minutes = local_dt.minute
     index = hours * 4 + (minutes // 15)
     return index
+
+def index_to_time(idx):
+    hours = idx // 4
+    minutes = (idx % 4) * 15
+    return f"{hours:02}:{minutes:02}"
+
+
+def time_to_iso(city: str, time: str, date_str: str = None, input_is_utc: bool = False) -> List[str]:
+    """
+    Convert a list of times to ISO 8601 strings with correct timezone.
+
+    :param city: City name, e.g., "Zurich"
+    :param times: List of times in HH:MM format
+    :param date_str: Date in YYYY-MM-DD format
+    :param input_is_utc: If True, input times are UTC and will be converted to local time
+    :return: List of ISO 8601 strings with timezone
+    """
+    if city not in CITY_TIMEZONES:
+        raise ValueError(f"Timezone for city '{city}' not defined.")
+    
+    tz = ZoneInfo(CITY_TIMEZONES[city])
+
+    if date_str is None:
+        date_str = date.today().isoformat()
+
+    dt_naive = datetime.strptime(f"{date_str} {time}", "%Y-%m-%d %H:%M")
+    
+    if input_is_utc:
+        # Input is UTC, convert to local timezone
+        dt_utc = dt_naive.replace(tzinfo=ZoneInfo("UTC"))
+        dt_local = dt_utc.astimezone(tz)
+    else:
+        # Input is local time
+        dt_local = dt_naive.replace(tzinfo=tz)
+
+    return dt_local.isoformat()
